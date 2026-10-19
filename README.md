@@ -171,4 +171,4 @@ In your Twitch Creator Dashboard (*Viewer Rewards ➔ Channel Points ➔ Manage 
 
 ---
 
-[Voltar ao topo/Back to top](#README)
+[Voltar ao topo / Back to top](#soundpadbotfortwitch)
