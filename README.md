@@ -1,6 +1,10 @@
+
 <div align="center">
 
 # SoundpadBotForTwitch
+[![Versão](https://img.shields.io/badge/Versão-1.0-brightgreen)]()
+[![Licença](https://img.shields.io/badge/Licença-GPL--3.0-blue)]()
+[![Status](https://img.shields.io/badge/Status-Ativo-success)]()
 
 [🇧🇷 Versão em Português](#-versão-em-português) • [🇺🇸 English Version](#-english-version)
 
@@ -167,4 +171,4 @@ In your Twitch Creator Dashboard (*Viewer Rewards ➔ Channel Points ➔ Manage 
 
 ---
 
-[Voltar ao topo/Back to top](#twitch-soundpad-integration-bot)
+[Voltar ao topo/Back to top](#README)
