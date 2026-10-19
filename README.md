@@ -91,6 +91,9 @@ No seu Painel de Criador da Twitch (*Recompensas de Espectador ➔ Pontos do Can
 2. Dê dois cliques em **`iniciar_bot.bat`**.
 3. Uma janela abrirá mostrando a quantidade de sons carregados e a conexão confirmada com a Twitch.
 
+**Desenvolvido por Mateus ([Y4SH1R01](https://github.com/Y4SH1R01)) com ajuda da:**
+* Versão 1.0: Gemini-3.8-Flash.
+
 ---
 
 ## 🇺🇸 English Version
@@ -170,5 +173,12 @@ In your Twitch Creator Dashboard (*Viewer Rewards ➔ Channel Points ➔ Manage 
 3. A terminal window will open confirming the loaded sound count and Twitch WebSocket connection.
 
 ---
+
+⚠️⚠️⚠️ WARNING:
+
+- Support for English commands and renaming of files is almost not existent in the current version. IDK if it would be viable to add support for renaming but I will probably put more commands and make the AI add a English version of it for convenience. That's it for now.
+
+**Dev'd by Mateus ([Y4SH1R01](https://github.com/Y4SH1R01)) with the help of:**
+* Version 1.0: Gemini-3.8-Flash.
 
 [Voltar ao topo / Back to top](#soundpadbotfortwitch)
