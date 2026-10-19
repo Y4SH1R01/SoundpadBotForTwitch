@@ -69,10 +69,10 @@ pip install websockets requests
 
 #### 3. Criar os Resgates de Pontos na Twitch
 No seu Painel de Criador da Twitch (*Recompensas de Espectador ➔ Pontos do Canal ➔ Gerenciar Recompensas*), crie os seguintes resgates:
-* **`Som Aleatório`**: Resgate padrão comum.
-* **`Buscar Meme`**: Marque a opção **"Exigir que o espectador insira texto"** (o viewer digita o nome do meme).
-* **`Parar Som`**: Resgate padrão para pular o áudio atual.
-* **Sons Específicos** *(Opcional)*: Se quiser criar resgates fixos para memes específicos, use na Twitch o **mesmo nome** cadastrado no `REWARDS_MAP` do script, apontando para o número do ID no Soundpad.  
+- **`Som Aleatório`**: Resgate padrão comum.
+- **`Buscar Meme`**: Marque a opção **"Exigir que o espectador insira texto"** (o viewer digita o nome do meme).
+- **`Parar Som`**: Resgate padrão para pular o áudio atual.
+  - **Sons Específicos** *(Opcional)*: Se quiser criar resgates fixos para memes específicos, use na Twitch o **mesmo nome** cadastrado no `REWARDS_MAP` do script, apontando para o número do ID no Soundpad.  
   Exemplo de configuração no `bot_soundpad.py` (cada som em sua própria linha):
   ```python
   REWARDS_MAP = {
@@ -127,8 +127,8 @@ A lightweight local Python bot integrating Twitch Channel Point rewards with Sou
 #### 1. Clone the Repository & Install Dependencies
 Open your terminal (Command Prompt or PowerShell) where you want to keep the bot:
 ```bash
-git clone https://github.com/YOUR_USERNAME/YOUR_REPOSITORY.git
-cd YOUR_REPOSITORY
+git clone https://github.com/Y4SH1R01/SoundpadBotForTwitch.git
+cd SoundpadBotForTwitch
 pip install websockets requests
 ```
 
@@ -147,10 +147,10 @@ pip install websockets requests
 
 #### 3. Create Twitch Channel Point Rewards
 In your Twitch Creator Dashboard (*Viewer Rewards ➔ Channel Points ➔ Manage Rewards*), create:
-* **`Som Aleatório`**: Standard custom reward.
-* **`Buscar Meme`**: Check **"Require Viewer to Enter Text"** (viewers type the meme keyword).
-* **`Parar Som`**: Standard custom reward to skip current playback.
-* * **Specific Sounds** *(Optional)*: To create fixed rewards for specific sounds, make sure the reward title on Twitch matches the **exact name** defined in the `REWARDS_MAP` dictionary, mapped to its Soundpad index.  
+- **`Rnadom Sound`**: Standard custom reward.
+- **`Search Meme`**: Check **"Require Viewer to Enter Text"** (viewers type the meme keyword).
+- **`Stop Sound`**: Standard custom reward to skip current playback.
+  - **Specific Sounds** *(Optional)*: To create fixed rewards for specific sounds, make sure the reward title on Twitch matches the **exact name** defined in the `REWARDS_MAP` dictionary, mapped to its Soundpad index.  
   Configuration example in `bot_soundpad.py` (each entry on its own line):
   ```python
   REWARDS_MAP = {
