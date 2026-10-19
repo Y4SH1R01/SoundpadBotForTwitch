@@ -80,11 +80,11 @@ No seu Painel de Criador da Twitch (*Recompensas de Espectador ➔ Pontos do Can
       "Nome Exato 2": 456,
   }
     
-#### 4. Configurar o Pop-up no OBS Studio
+#### 4. Configurar o Pop-up no OBS Studio **(Opcional, só pra ter algo na tela da Stream caso vc prefire, isso vai ser uma opção futuramente entre aparecer no chat e na tela da stream.)**
 1. No OBS, adicione uma fonte de **Texto (GDI+)** na sua cena.
 2. Marque a caixa **Ler do arquivo** (*Read from file*).
 3. Selecione o arquivo `obs_tocando_agora.txt` que está dentro da pasta do bot.
-4. Defina a fonte como **Segoe UI Emoji** (para os ícones não virarem quadrados).
+4. Defina a fonte como **Segoe UI Emoji** (para os ícones não virarem quadrados xd).
 
 #### 5. Iniciar o Bot
 1. Abra o **Soundpad** (certifique-se de que a lista de sons esteja salva).
@@ -161,7 +161,7 @@ In your Twitch Creator Dashboard (*Viewer Rewards ➔ Channel Points ➔ Manage 
       "Exact Title 2": 456,
   }
 
-#### 4. Configure the OBS Studio Pop-up Overlay
+#### 4. Configure the OBS Studio Pop-up Overlay **(Currently Optional, will add a option for this or chat notifs later)**
 1. In OBS Studio, add a **Text (GDI+)** source to your active scene.
 2. Check the **Read from file** box.
 3. Browse and select `obs_tocando_agora.txt` (located in the bot root folder).
