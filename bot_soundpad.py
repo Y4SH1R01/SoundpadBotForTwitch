@@ -16,9 +16,14 @@ ACCESS_TOKEN = "SEU_ACCESS_TOKEN_AQUI"
 # Nomes dos Resgates de Pontos do Canal na Twitch
 RANDOM_REWARD_NAME = "Som Aleatório"
 SEARCH_REWARD_NAME = "Buscar Meme"
-STOP_REWARD_NAME = "Parar Som"
+SEARCH_REWARD_COST = 200         # Custo em pontos da busca (criada via API)
+STOP_REWARD_NAME = "Parar Som"   # Interrompe o áudio atual (sem apagar a fila restante)
+STOP_REWARD_COST = 1000          # Custo em pontos para parar o áudio atual (criado via API)
 
-# Sons específicos ("Nome do Resgate na Twitch": ID no Soundpad)
+# Caminho manual para a sua lista de sons (RECOMENDO BOTAR O SEU .spl AQUI, Caso contrário deixe "" para auto-detectar pelo AppData (não recomendável))
+CUSTOM_SPL_PATH = ""
+
+# Sons específicos (tocam direto sem poluir o chat/OBS)
 REWARDS_MAP = {
     "Exemplo Som 1": 1,
     "Exemplo Som 2": 2,
@@ -26,9 +31,9 @@ REWARDS_MAP = {
 }
 
 # Configurações de Fila e Cooldown
-USER_COOLDOWN_SECONDS = 15   # Tempo em segundos de cooldown individual por viewer
-QUEUE_DELAY_SECONDS = 3      # Intervalo de segurança entre um som e outro
-OBS_POPUP_SECONDS = 10       # Duração em segundos do pop-up no OBS
+USER_COOLDOWN_SECONDS = 0       # Tempo em segundos de cooldown por viewer (0 = desativado, AJUSTE!)
+QUEUE_DELAY_SECONDS = 3         # Intervalo de segurança entre um som e outro na fila
+ENABLE_CHAT_ANNOUNCEMENTS = True # True = avisa no chat / False = apenas pop-up no OBS (Comando !chat modifica isso)
 
 # Caminhos
 PIPE_PATH = r"\\.\pipe\sp_remote_control"
@@ -40,11 +45,13 @@ BROADCASTER_NAME = ""
 SOUND_LIST = []
 SOUND_QUEUE = asyncio.Queue()
 USER_COOLDOWNS = {}
+CURRENT_PLAY_TASK = None
 
 def normalize_text(text: str) -> str:
     return text.replace("–", "-").replace("—", "-").strip().lower()
 
 def send_soundpad(command: str):
+    """Envia o comando direto pela memória do Soundpad."""
     try:
         with open(PIPE_PATH, "r+b", buffering=0) as pipe:
             pipe.write(command.encode("utf-8"))
@@ -62,6 +69,7 @@ def stop_sound():
     send_soundpad("DoStopSound()")
 
 def is_soundpad_playing() -> bool:
+    """Verifica diretamente no Soundpad se ainda há áudio tocando."""
     try:
         with open(PIPE_PATH, "r+b", buffering=0) as pipe:
             pipe.write(b"GetPlayStatus()")
@@ -71,6 +79,7 @@ def is_soundpad_playing() -> bool:
         return False
 
 def update_obs_text(text: str):
+    """Escreve no arquivo lido pelo OBS."""
     try:
         with open(OBS_TEXT_FILE, "w", encoding="utf-8") as f:
             f.write(text)
@@ -79,14 +88,8 @@ def update_obs_text(text: str):
     except Exception as e:
         print(f"[OBS] Erro ao gravar arquivo: {e}")
 
-async def trigger_obs_popup(text: str):
-    update_obs_text(text)
-    await asyncio.sleep(OBS_POPUP_SECONDS)
-    update_obs_text("")
-
-CURRENT_PLAY_TASK = None
-
 def skip_current_sound():
+    """Pula apenas o áudio atual e força a fila a avançar para o próximo som."""
     global CURRENT_PLAY_TASK
     if CURRENT_PLAY_TASK and not CURRENT_PLAY_TASK.done():
         CURRENT_PLAY_TASK.cancel()
@@ -94,6 +97,7 @@ def skip_current_sound():
     update_obs_text("")
 
 def clear_queue_and_stop():
+    """Cancela toda a fila e cala o áudio imediatamente."""
     global CURRENT_PLAY_TASK
     while not SOUND_QUEUE.empty():
         try:
@@ -106,41 +110,111 @@ def clear_queue_and_stop():
     stop_sound()
     update_obs_text("")
 
-def check_user_cooldown(user: str) -> bool:
-    if user.lower() == BROADCASTER_NAME.lower():
-        return True
+def check_user_cooldown(user: str):
+    """Retorna (True, 0) se puder resgatar, ou (False, remaining) se estiver em cooldown."""
+    if USER_COOLDOWN_SECONDS <= 0 or user.lower() == BROADCASTER_NAME.lower():
+        return True, 0
 
     now = time.time()
     last_time = USER_COOLDOWNS.get(user.lower(), 0)
     remaining = int(USER_COOLDOWN_SECONDS - (now - last_time))
 
     if remaining > 0:
-        send_twitch_chat(f"⏳ @{user}, aguarde {remaining}s para resgatar outro som!")
-        return False
+        return False, remaining
 
     USER_COOLDOWNS[user.lower()] = now
-    return True
+    return True, 0
+
+def _sync_refund_redemption(broadcaster_id: str, reward_id: str, redemption_id: str):
+    """Cancela o resgate via API da Twitch para devolver os pontos ao viewer."""
+    clean_token = ACCESS_TOKEN.replace("oauth:", "").strip()
+    url = f"https://api.twitch.tv/helix/channel_points/custom_rewards/redemptions?broadcaster_id={broadcaster_id}&reward_id={reward_id}&id={redemption_id}"
+    headers = {
+        "Client-Id": CLIENT_ID,
+        "Authorization": f"Bearer {clean_token}",
+        "Content-Type": "application/json"
+    }
+    body = {"status": "CANCELED"}
+    try:
+        r = requests.patch(url, headers=headers, json=body, timeout=5)
+        if r.status_code == 200:
+            print("[Twitch] Pontos estornados com sucesso ao viewer!")
+        else:
+            print(f"[!] Falha ao estornar pontos ({r.status_code}): {r.text}")
+    except Exception as e:
+        print(f"[!] Erro de conexão no estorno: {e}")
+
+async def refund_redemption(broadcaster_id: str, reward_id: str, redemption_id: str):
+    await asyncio.to_thread(_sync_refund_redemption, broadcaster_id, reward_id, redemption_id)
+
+def ensure_managed_rewards(broadcaster_id: str):
+    """Cria as recompensas gerenciáveis via API para garantir permissão de estorno."""
+    clean_token = ACCESS_TOKEN.replace("oauth:", "").strip()
+    headers = {
+        "Client-Id": CLIENT_ID,
+        "Authorization": f"Bearer {clean_token}",
+        "Content-Type": "application/json"
+    }
+
+    url_get = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={broadcaster_id}&only_manageable_rewards=true"
+    try:
+        r = requests.get(url_get, headers=headers, timeout=5)
+        manageable_titles = []
+        if r.status_code == 200:
+            rewards = r.json().get("data", [])
+            manageable_titles = [normalize_text(rw.get("title", "")) for rw in rewards]
+
+        rewards_to_ensure = [
+            {
+                "title": SEARCH_REWARD_NAME,
+                "cost": SEARCH_REWARD_COST,
+                "is_user_input_required": True,
+                "prompt": "Digite o nome ou palavra do áudio que deseja buscar."
+            },
+            {
+                "title": STOP_REWARD_NAME,
+                "cost": STOP_REWARD_COST,
+                "is_user_input_required": False,
+                "prompt": ""
+            }
+        ]
+
+        url_post = f"https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id={broadcaster_id}"
+        for rw in rewards_to_ensure:
+            norm_title = normalize_text(rw["title"])
+            if norm_title in manageable_titles:
+                print(f"[✓] Recompensa gerenciável '{rw['title']}' verificada (estorno ativo)!")
+                continue
+
+            r_post = requests.post(url_post, headers=headers, json=rw, timeout=5)
+            if r_post.status_code in (200, 201):
+                print(f"[✓] Recompensa '{rw['title']}' criada via API (estorno ativo)!")
+            elif r_post.status_code == 400 and "already exists" in r_post.text.lower():
+                print(f"[!] AVISO: Apague a recompensa '{rw['title']}' antiga do site da Twitch para o bot poder recriá-la com direito a estorno.")
+            else:
+                print(f"[!] Erro ao registrar recompensa '{rw['title']}' ({r_post.status_code}): {r_post.text}")
+    except Exception as e:
+        print(f"[!] Erro ao checar recompensas gerenciadas: {e}")
 
 async def sound_queue_worker():
+    """Worker que monitora o áudio e sincroniza o pop-up com a duração real."""
     global CURRENT_PLAY_TASK
     while True:
         item = await SOUND_QUEUE.get()
         try:
             play_sound(item["id"])
+            duration = item.get("duration", 3.0)
 
             if item.get("show_popup"):
                 sound_name = item["name"]
                 user = item["user"]
-
-                asyncio.create_task(trigger_obs_popup(f"🎵 {sound_name} (por @{user})"))
+                update_obs_text(f"🎵 {sound_name} (por @{user})")
 
                 if item.get("is_search"):
                     query = item.get("query", "")
-                    send_twitch_chat(f"🔎 @{user} buscou \"{query}\" e tocou: \"{sound_name}\" (ID #{item['id']})")
+                    await send_twitch_chat(f"🔎 @{user} buscou \"{query}\" e tocou: \"{sound_name}\" (ID #{item['id']})")
                 else:
-                    send_twitch_chat(f"🎲 @{user} girou a roleta e tocou: \"{sound_name}\" (ID #{item['id']})")
-
-            duration = item.get("duration", 3.0)
+                    await send_twitch_chat(f"🎲 @{user} girou a roleta e tocou: \"{sound_name}\" (ID #{item['id']})")
 
             async def _wait_playback():
                 await asyncio.sleep(0.4)
@@ -159,9 +233,13 @@ async def sound_queue_worker():
         except Exception as e:
             print(f"[!] Erro na fila: {e}")
         finally:
+            update_obs_text("")
             SOUND_QUEUE.task_done()
 
 def find_spl_path() -> str:
+    if CUSTOM_SPL_PATH and os.path.exists(CUSTOM_SPL_PATH):
+        return CUSTOM_SPL_PATH
+
     appdata = os.environ.get("APPDATA", "")
     localappdata = os.environ.get("LOCALAPPDATA", "")
 
@@ -237,8 +315,8 @@ def load_soundpad_library():
         print(f"[!] Erro ao carregar biblioteca: {e}")
         return []
 
-def send_twitch_chat(message: str):
-    if not BROADCASTER_ID:
+def _sync_send_twitch_chat(message: str, force: bool = False):
+    if not BROADCASTER_ID or (not ENABLE_CHAT_ANNOUNCEMENTS and not force):
         return
     clean_token = ACCESS_TOKEN.replace("oauth:", "").strip()
     url = "https://api.twitch.tv/helix/chat/messages"
@@ -253,9 +331,12 @@ def send_twitch_chat(message: str):
         "message": message
     }
     try:
-        requests.post(url, headers=headers, json=body)
-    except Exception:
-        pass
+        requests.post(url, headers=headers, json=body, timeout=5)
+    except Exception as e:
+        print(f"[!] Erro de conexão no chat: {e}")
+
+async def send_twitch_chat(message: str, force: bool = False):
+    await asyncio.to_thread(_sync_send_twitch_chat, message, force)
 
 def get_broadcaster_id(client_id: str, token: str):
     clean_token = token.replace("oauth:", "").strip()
@@ -305,12 +386,13 @@ def subscribe_eventsub(client_id: str, token: str, broadcaster_id: str, session_
 async def listen_twitch():
     clean_token = ACCESS_TOKEN.replace("oauth:", "").strip()
     user_id, user_name = get_broadcaster_id(CLIENT_ID, clean_token)
-    global BROADCASTER_ID, BROADCASTER_NAME
+    global BROADCASTER_ID, BROADCASTER_NAME, SOUND_LIST, ENABLE_CHAT_ANNOUNCEMENTS
     BROADCASTER_ID = user_id
     BROADCASTER_NAME = user_name
 
     asyncio.create_task(sound_queue_worker())
     update_obs_text("")
+    ensure_managed_rewards(user_id)
 
     print("=" * 60)
     print(f"[✓] Canal Conectado: {user_name} (ID: {user_id})")
@@ -341,26 +423,48 @@ async def listen_twitch():
                     elif msg_type == "notification":
                         event = data["payload"]["event"]
 
-                        # Comandos de Chat
+                        # ========================================================
+                        # 1. COMANDOS DE CHAT (1 variante PT-BR e 1 EN-US por ação)
+                        # ========================================================
                         if sub_type == "channel.chat.message":
                             chat_msg = event.get("message", {}).get("text", "").strip()
                             chatter = event.get("chatter_user_name", "")
                             badges = event.get("badges", [])
                             is_mod_or_host = (chatter.lower() == BROADCASTER_NAME.lower()) or any(b.get("set_id") in ["moderator", "broadcaster"] for b in badges)
 
-                            if chat_msg.lower() in ["!parar", "!skip", "!stop", "!proximo"]:
+                            cmd = chat_msg.lower()
+
+                            if cmd in ["!pular", "!skip"]:
                                 if is_mod_or_host:
                                     skip_current_sound()
-                                    send_twitch_chat(f"⏭️ @{chatter} pulou para o próximo som da fila!")
+                                    await send_twitch_chat(f"⏭️ @{chatter} pulou para o próximo som da fila!")
                                     print(f"[MOD] @{chatter} pulou o som atual.")
-                            elif chat_msg.lower() in ["!limpar", "!limparfila"]:
+
+                            elif cmd in ["!limpar", "!clear"]:
                                 if is_mod_or_host:
                                     clear_queue_and_stop()
-                                    send_twitch_chat(f"⏹️ @{chatter} limpou toda a fila de sons!")
+                                    await send_twitch_chat(f"⏹️ @{chatter} limpou toda a fila de sons!")
                                     print(f"[MOD] @{chatter} limpou a fila inteira.")
 
-                        # Resgates de Pontos de Canal
+                            elif cmd in ["!recarregar", "!reload"]:
+                                if is_mod_or_host:
+                                    SOUND_LIST = load_soundpad_library()
+                                    await send_twitch_chat(f"🔄 @{chatter} recarregou o Soundpad: {len(SOUND_LIST)} sons carregados!")
+                                    print(f"[MOD] @{chatter} recarregou a biblioteca ({len(SOUND_LIST)} sons).")
+
+                            elif cmd in ["!chat", "!togglechat"]:
+                                if is_mod_or_host:
+                                    ENABLE_CHAT_ANNOUNCEMENTS = not ENABLE_CHAT_ANNOUNCEMENTS
+                                    estado = "ATIVADOS" if ENABLE_CHAT_ANNOUNCEMENTS else "DESATIVADOS"
+                                    await send_twitch_chat(f"📢 Avisos de som no chat: {estado}!", force=True)
+                                    print(f"[MOD] @{chatter} alterou avisos de chat para: {estado}.")
+
+                        # ========================================================
+                        # 2. RESGATES DE PONTOS DE CANAL
+                        # ========================================================
                         elif sub_type == "channel.channel_points_custom_reward_redemption.add":
+                            redemption_id = event["id"]
+                            reward_id = event["reward"]["id"]
                             reward_title = event["reward"]["title"]
                             user = event["user_name"]
                             user_input = event.get("user_input", "").strip()
@@ -368,12 +472,22 @@ async def listen_twitch():
 
                             print(f"\n[RESGATE] '{user}' resgatou: '{reward_title}'")
 
+                            # Resgate: Parar Som (Interrompe o som atual sem apagar a fila restante)
                             if clean_title == normalize_text(STOP_REWARD_NAME):
+                                is_active = is_soundpad_playing() or not SOUND_QUEUE.empty() or (CURRENT_PLAY_TASK and not CURRENT_PLAY_TASK.done())
+                                if not is_active:
+                                    await send_twitch_chat(f"⚠️ @{user}, nenhum áudio está tocando agora! Seus pontos foram devolvidos.", force=True)
+                                    await refund_redemption(user_id, reward_id, redemption_id)
+                                    continue
+
                                 skip_current_sound()
-                                send_twitch_chat(f"⏭️ @{user} pulou o som atual!")
+                                await send_twitch_chat(f"⏹️ @{user} parou o áudio atual!")
                                 continue
 
-                            if not check_user_cooldown(user):
+                            can_redeem, remaining = check_user_cooldown(user)
+                            if not can_redeem:
+                                await send_twitch_chat(f"⏳ @{user}, aguarde {remaining}s para resgatar! Seus pontos foram devolvidos.")
+                                await refund_redemption(user_id, reward_id, redemption_id)
                                 continue
 
                             if clean_title == normalize_text(RANDOM_REWARD_NAME):
@@ -391,7 +505,8 @@ async def listen_twitch():
 
                             elif clean_title == normalize_text(SEARCH_REWARD_NAME):
                                 if not user_input:
-                                    send_twitch_chat(f"⚠️ @{user}, você precisa digitar uma palavra para buscar o meme!")
+                                    await send_twitch_chat(f"⚠️ @{user}, digite uma palavra para buscar o meme! Seus pontos foram devolvidos.")
+                                    await refund_redemption(user_id, reward_id, redemption_id)
                                     continue
 
                                 query = normalize_text(user_input)
@@ -411,7 +526,8 @@ async def listen_twitch():
                                     })
                                     print(f" -> [Fila] Busca por '{user_input}' -> #{chosen['id']} ('{chosen['name']}') [{chosen.get('duration', 3.0)}s]")
                                 else:
-                                    send_twitch_chat(f"⚠️ @{user}, nenhum áudio encontrado com a palavra \"{user_input}\"!")
+                                    await send_twitch_chat(f"⚠️ @{user}, nenhum áudio com \"{user_input}\"! Seus pontos foram devolvidos.")
+                                    await refund_redemption(user_id, reward_id, redemption_id)
 
                             elif clean_title in normalized_rewards:
                                 sound_id = normalized_rewards[clean_title]
