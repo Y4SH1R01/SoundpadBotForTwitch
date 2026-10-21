@@ -73,6 +73,7 @@ pip install websockets requests
 
 #### 3. Configurar os Resgates de Pontos na Twitch
 * **Recompensas Automáticas gerenciadas pela API**: Ao iniciar o script pela primeira vez com o token configurado, o próprio bot cria as recompensas `Buscar Meme` (200 pts) e `Parar Som` (1000 pts) na Twitch para garantir permissão de estorno automático. *(Caso já as tenha criado manualmente antes pelo site da Twitch, exclua-as pelo painel para que o bot possa recriá-las via API).*
+   - *(Opcional)*: Você pode personalizar a quantidade de pontos dessas recompensas alterando as variáveis `SEARCH_REWARD_COST` e `STOP_REWARD_COST` no início do `bot_soundpad.py`.
 * **`Som Aleatório`**: Crie como resgate padrão comum no painel da Twitch.
 * **Sons Específicos** *(Opcional)*: Se quiser criar resgates fixos para memes específicos, use na Twitch o **mesmo nome** cadastrado no `REWARDS_MAP` do script, apontando para o número do ID no Soundpad.  
   Exemplo de configuração no `bot_soundpad.py` (cada som em sua própria linha):
@@ -161,6 +162,7 @@ pip install websockets requests
 
 #### 3. Setup Twitch Channel Point Rewards
 * **Auto-Managed API Rewards**: On startup, the bot automatically creates the `Buscar Meme` (200 pts) and `Parar Som` (1000 pts) rewards on Twitch to ensure refund permissions. *(If you previously created rewards with these names manually on Twitch, delete them from your dashboard first so the bot can recreate them via API).*
+   - *(Optional)*: You can customize the point cost of these rewards by editing `SEARCH_REWARD_COST` and `STOP_REWARD_COST` at the top of `bot_soundpad.py`.
 * **`Som Aleatório`**: Create as a standard custom reward in your Twitch dashboard.
 * **Specific Sounds** *(Optional)*: To create fixed rewards for specific sounds, make sure the reward title on Twitch matches the **exact name** defined in the `REWARDS_MAP` dictionary, mapped to its Soundpad index.  
   Configuration example in `bot_soundpad.py` (each entry on its own line):
