@@ -91,7 +91,7 @@ pip install websockets requests pillow
    - `Buscar Meme` (150 pts)
    - `Parar Som` (500 pts)
    - `Roleta Russa` (50 pts)
-   *(Você pode personalizar os nomes, custos e textos descritivos diretamente nas variáveis de configuração no início do `bot_soundpad.py` — o bot atualiza na Twitch via API automaticamente).*
+*   *(Você pode personalizar os nomes, custos e textos descritivos diretamente nas variáveis de configuração no início do `bot_soundpad.py` — o bot atualiza na Twitch via API automaticamente).*
 * **Sons Específicos** *(Opcional)*: Se quiser criar resgates fixos para memes específicos, use na Twitch o **mesmo nome** cadastrado no `REWARDS_MAP` do script, apontando para o número do ID no Soundpad.  
   Exemplo de configuração no `bot_soundpad.py`:
   ```python
@@ -201,7 +201,7 @@ pip install websockets requests pillow
    - `Buscar Meme` (150 pts)
    - `Parar Som` (500 pts)
    - `Roleta Russa` (50 pts)
-   *(You can customize titles, point costs, and prompt descriptions directly in the configuration block at the top of `bot_soundpad.py` — the bot updates them on Twitch via API automatically).*
+ *  *(You can customize titles, point costs, and prompt descriptions directly in the configuration block at the top of `bot_soundpad.py` — the bot updates them on Twitch via API automatically).*
 * **Specific Sounds** *(Optional)*: To create fixed rewards for specific sounds, make sure the reward title on Twitch matches the **exact name** defined in the `REWARDS_MAP` dictionary, mapped to its Soundpad index.  
   Configuration example in `bot_soundpad.py`:
   ```python
